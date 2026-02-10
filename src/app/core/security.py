@@ -1,12 +1,11 @@
 from datetime import datetime, timedelta
+
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.db.memory import USERS
 from app.core.config import settings
 from app.db.session import get_db
 from app.db.models import User
@@ -20,7 +19,7 @@ def make_token(user_id: str) -> str:
 async def get_user(
     creds: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
-):
+) -> User:
     token = creds.credentials
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
@@ -34,7 +33,7 @@ async def get_user(
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
-def require_admin(user=Depends(get_user)):
-    if user.get("role") != "admin":
+def require_admin(user: User = Depends(get_user)) -> User:
+    if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     return user

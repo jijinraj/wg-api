@@ -1,6 +1,6 @@
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, text
 import uuid
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import String, Boolean, ForeignKey, text
 
 class Base(DeclarativeBase):
     pass
@@ -16,6 +16,7 @@ class User(Base):
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     role: Mapped[str] = mapped_column(String, default="user")
 
+    # keep string for now (works); later you can convert to DateTime properly
     created_at: Mapped[str] = mapped_column(String, server_default=text("now()"))
 
 class Peer(Base):

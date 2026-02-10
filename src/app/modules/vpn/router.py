@@ -1,0 +1,83 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import LOCATIONS
+from app.core.security import get_user
+from app.db.session import get_db
+
+from app.modules.vpn.schemas import (
+    LocationListOut,
+    ServerInfoOut,
+    PeerCreateIn,
+    PeerOut,
+    PeerListOut,
+)
+from app.modules.vpn.service import (
+    get_location,
+    list_peers_for_user,
+    create_peer_for_user,
+    delete_peer_for_user,
+)
+
+router = APIRouter(prefix="/vpn", tags=["vpn"])
+
+@router.get("/locations", response_model=LocationListOut)
+def locations():
+    return {"items": [{"id": l["id"], "label": l["label"], "ping_url": l["ping_url"]} for l in LOCATIONS]}
+
+@router.get("/server-info", response_model=ServerInfoOut)
+def server_info(location_id: str):
+    loc = get_location(location_id)
+    if not loc:
+        raise HTTPException(status_code=404, detail="Unknown location")
+    return {
+        "server_public_key": loc["server_public_key"],
+        "endpoint": loc["endpoint"],
+        "dns": loc["dns"],
+        "allowed_ips": loc["allowed_ips"],
+    }
+
+# User VPN self-management under VPN domain
+@router.get("/me/peers", response_model=PeerListOut)
+async def my_peers(user=Depends(get_user), db: AsyncSession = Depends(get_db)):
+    rows = await list_peers_for_user(db, user.id)
+    return {
+        "items": [
+            PeerOut(
+                id=p.id,
+                name=p.name,
+                public_key=p.public_key,
+                allowed_ip=p.allowed_ip,
+                location_id=p.location_id,
+                location_label=p.location_label,
+            )
+            for p in rows
+        ]
+    }
+
+@router.post("/me/peers", response_model=PeerOut)
+async def add_peer(data: PeerCreateIn, user=Depends(get_user), db: AsyncSession = Depends(get_db)):
+    # (optional) enforce beta-approved here too, not just in login
+    if not user.is_beta_approved:
+        raise HTTPException(status_code=403, detail="Not approved for beta yet")
+
+    p = await create_peer_for_user(
+        db,
+        user_id=user.id,
+        name=data.name,
+        public_key=data.public_key,
+        location_id=data.location_id,
+    )
+    return PeerOut(
+        id=p.id,
+        name=p.name,
+        public_key=p.public_key,
+        allowed_ip=p.allowed_ip,
+        location_id=p.location_id,
+        location_label=p.location_label,
+    )
+
+@router.delete("/me/peers/{peer_id}")
+async def remove_peer(peer_id: str, user=Depends(get_user), db: AsyncSession = Depends(get_db)):
+    await delete_peer_for_user(db, user_id=user.id, peer_id=peer_id)
+    return {"ok": True}

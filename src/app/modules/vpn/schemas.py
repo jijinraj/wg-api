@@ -1,12 +1,5 @@
 from pydantic import BaseModel
 
-class LoginIn(BaseModel):
-    email: str
-    password: str
-
-class TokenOut(BaseModel):
-    token: str
-
 class LocationOut(BaseModel):
     id: str
     label: str
@@ -36,13 +29,3 @@ class PeerOut(BaseModel):
 
 class PeerListOut(BaseModel):
     items: list[PeerOut]
-
-class SignupIn(BaseModel):
-    email: str
-    password: str
-
-class PublicUserOut(BaseModel):
-    id: str
-    email: str
-    is_beta_approved: bool
-    is_email_verified: bool
