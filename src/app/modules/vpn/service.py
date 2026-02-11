@@ -1,3 +1,25 @@
+"""
+modules/vpn/service.py — manages VPN device records in the database and assigns each device a unique internal VPN IP.
+
+VPN business logic (peer management + IP allocation).
+
+This file contains the DB logic behind the VPN router:
+- Location lookup uses the static LOCATIONS list (config.py) for now.
+- Peer/device records are stored in the Peer table.
+- Each new peer is assigned a unique tunnel IP from a simple IP pool.
+
+Functions:
+- get_location(location_id): returns the matching location dict from LOCATIONS or None.
+- next_allowed_ip(db): finds the next unused IP in the pool (10.8.0.10–10.8.0.249)/32.
+  Raises 400 if the pool is exhausted.
+- list_peers_for_user(db, user_id): returns all peers owned by the user.
+- create_peer_for_user(...): validates location, allocates allowed_ip, inserts a Peer row, commits, and returns it.
+- delete_peer_for_user(db, user_id, peer_id): checks the peer exists and belongs to the user, then deletes it.
+
+Notes:
+- This currently updates only the database. Applying/removing peers on the actual WireGuard server
+  is planned later (SSH/agent/API integration).
+"""
 import uuid
 from datetime import datetime
 

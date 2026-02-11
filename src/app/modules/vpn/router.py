@@ -1,3 +1,29 @@
+"""
+modules/vpn/router.py — lets users pick a VPN location and manage their own WireGuard devices (list/add/delete) after logging in.
+
+VPN endpoints (locations + WireGuard peer self-management).
+
+This router exposes VPN-related API routes under the `/vpn` prefix.
+
+Public endpoints (no auth):
+- GET /vpn/locations
+  Returns available VPN locations from config.LOCATIONS (id, label, ping_url).
+- GET /vpn/server-info?location_id=...
+  Returns WireGuard server connection details for a location
+  (server_public_key, endpoint, dns, allowed_ips). Returns 404 if unknown.
+
+User endpoints (auth required via get_user):
+- GET /vpn/me/peers
+  Lists the logged-in user's WireGuard peers/devices.
+- POST /vpn/me/peers
+  Creates a new peer for the logged-in user (optional beta gate enforced here too).
+- DELETE /vpn/me/peers/{peer_id}
+  Deletes a peer owned by the logged-in user.
+
+Notes:
+- Uses get_db() to get an AsyncSession per request.
+- Business logic (DB queries, IP allocation, ownership checks) lives in vpn.service.
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
