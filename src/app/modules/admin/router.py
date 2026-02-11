@@ -1,3 +1,27 @@
+"""
+modules/admin/router.py — admin-only API routes for managing users and their VPN devices.
+
+admin-only API endpoints.
+
+This router exposes admin operations under the `/admin` prefix.
+All routes are protected by `require_admin`, meaning the caller must:
+1) be logged in with a valid JWT, and
+2) have user.role == "admin".
+
+Endpoints:
+- GET  /admin/users
+  Lists all users (safe fields only; never returns password hashes).
+- POST /admin/users/{email}/approve
+  Marks a user as beta-approved by email.
+- GET  /admin/users/{user_id}/peers
+  Lists all WireGuard peers/devices belonging to a user.
+- DELETE /admin/peers/{peer_id}
+  Force deletes a peer/device by peer id.
+
+Uses:
+- get_db() to get an AsyncSession per request.
+- service layer functions (admin.service) for DB logic.
+"""
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 

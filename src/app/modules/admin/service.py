@@ -1,3 +1,22 @@
+"""
+modules/admin/service.py — admin-side database actions (service layer).
+
+This file contains the database logic used by the admin router. The router should stay thin
+(HTTP request/response), while this service layer runs SQLAlchemy queries and commits changes.
+
+Functions:
+- list_users(db): returns all users.
+- approve_user_by_email(db, email): normalizes email, verifies the user exists, then sets
+  is_beta_approved=True (raises 404 if not found).
+- list_peers_for_user(db, user_id): returns all WireGuard peers/devices for the given user_id.
+- force_delete_peer(db, peer_id): verifies the peer exists, then deletes it (raises 404 if not found).
+
+Notes:
+- `await db.commit()` is required for updates/deletes to persist in the database.
+- Email normalization uses strip().lower() to avoid case/spacing mismatches.
+- The delete function includes a 404 existence check so the API doesn't silently succeed on invalid IDs.
+"""
+
 from fastapi import HTTPException
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +41,14 @@ async def list_peers_for_user(db: AsyncSession, user_id: str):
     res = await db.execute(select(Peer).where(Peer.user_id == user_id))
     return res.scalars().all()
 
+
 async def force_delete_peer(db: AsyncSession, peer_id: str) -> None:
+    # 1) Check existence
+    res = await db.execute(select(Peer).where(Peer.id == peer_id))
+    peer = res.scalar_one_or_none()
+    if not peer:
+        raise HTTPException(status_code=404, detail="Peer not found")
+
+    # 2) Delete + commit
     await db.execute(delete(Peer).where(Peer.id == peer_id))
     await db.commit()
