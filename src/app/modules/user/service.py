@@ -1,3 +1,30 @@
+"""
+modules/user/service.py — the signup/login logic, checks passwords securely, and (in dev mode) can use a memory test user and seed it into the database.
+
+user auth logic (signup/login) + optional dev memory fallback.
+
+This file contains the core business logic for user accounts:
+- Password hashing/verification uses Argon2 (ph.hash / ph.verify).
+- DB is the main source of truth for users.
+- Optional dev feature: when ALLOW_MEMORY_USERS=true, we can:
+  - block duplicate signup if the email exists in memory seed
+  - allow login using memory users if not found in DB
+  - "seed" that memory user into the DB on first successful login (to make future behavior consistent)
+
+Functions:
+- _verify(hash, password): verifies a plain password against an Argon2 hash.
+- get_user_by_email(db, email): fetches a user from DB or returns None.
+- create_db_user(db, ...): inserts a user into DB and commits.
+- signup(db, email, password): validates input, hashes password, creates user in DB,
+  and optionally mirrors it into MEM_USERS for dev convenience.
+- login(db, email, password): checks DB first; if missing and dev mode enabled,
+  falls back to memory user, verifies password, enforces beta gate, and seeds into DB.
+
+Notes:
+- Password checks must use `ph.verify(stored_hash, plain_password)` (never compare strings).
+- Beta access is enforced via `is_beta_approved` (returns 403 if not approved).
+- Email verification is planned later (is_email_verified check is currently commented).
+"""
 import uuid
 from datetime import datetime, timezone
 
