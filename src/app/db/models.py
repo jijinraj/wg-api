@@ -1,3 +1,22 @@
+"""
+models.py — defines what our database tables look like and how the backend stores users and their VPN devices.
+
+This file describes the structure (schema) of the database using SQLAlchemy ORM models.
+
+- Base: shared ORM base class used by all models.
+- User: `users` table for authentication and account management
+  (email, password_hash, role, beta/verification flags).
+- Peer: `peers` table for WireGuard devices linked to a user via `user_id` (ForeignKey).
+
+Notes:
+- IDs are auto-generated UUID strings.
+- `email` is unique and indexed for fast login lookups.
+- `created_at` currently uses a String with DB default `now()` 
+  (can be upgraded to proper DateTime later).
+"""
+
+
+
 import uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String, Boolean, ForeignKey, text
