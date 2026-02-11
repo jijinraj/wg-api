@@ -1,3 +1,22 @@
+"""
+config.py — stores backend’s settings (JWT, CORS, DB) and the list of VPN server locations.
+
+central app configuration (env-based settings + static VPN locations).
+
+This file loads settings from environment variables (with safe defaults) and exposes them
+via a `settings` object used across the backend.
+
+- Helper functions:
+  - _env_bool(): reads env vars like "true/1/yes/on" into a real boolean.
+  - _env_list(): reads comma-separated env vars into a list (supports "*" = allow all).
+- Settings (Pydantic):
+  - JWT_SECRET / JWT_ALG / JWT_EXP_MIN: JWT signing + expiry configuration.
+  - CORS_ORIGINS: allowed frontend origins for CORS.
+  - DATABASE_URL: async SQLAlchemy connection string (e.g., postgresql+asyncpg).
+  - ALLOW_MEMORY_USERS: dev flag to allow/seed in-memory users from memory.py.
+- LOCATIONS: temporary hardcoded VPN server list (id, label, endpoint, DNS, etc.).
+  Later this should move into the database so the VPN module can manage locations.
+"""
 import os
 from pydantic import BaseModel
 
