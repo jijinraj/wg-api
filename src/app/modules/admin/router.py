@@ -34,6 +34,10 @@ from app.modules.admin.service import (
     force_delete_peer,
 )
 
+from app.modules.admin.schemas import VpnServerCreate
+from app.modules.admin.service import create_vpn_server
+
+
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/users")
@@ -81,3 +85,25 @@ async def user_peers(user_id: str, admin=Depends(require_admin), db: AsyncSessio
 async def delete_peer(peer_id: str, admin=Depends(require_admin), db: AsyncSession = Depends(get_db)):
     await force_delete_peer(db, peer_id)
     return {"ok": True}
+
+
+
+# VPN Server Management Routes
+@router.post("/vpn/servers")
+async def add_vpn_server(
+    payload: VpnServerCreate,
+    admin=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    s = await create_vpn_server(db, payload)
+    return {
+        "id": s.id,
+        "location_id": s.location_id,
+        "label": s.label,
+        "endpoint": s.endpoint,
+        "dns": s.dns,
+        "allowed_ips": s.allowed_ips,
+        "ping_url": s.ping_url,
+        "is_active": s.is_active,
+        "created_at": s.created_at,
+    }

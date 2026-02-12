@@ -52,3 +52,4 @@ class Peer(Base):
     location_label: Mapped[str] = mapped_column(String, nullable=False)
 
     created_at: Mapped[str] = mapped_column(String, server_default=text("now()"))
+

@@ -39,7 +39,8 @@ from app.modules.vpn.schemas import (
     PeerListOut,
 )
 from app.modules.vpn.service import (
-    get_location,
+    # get_location,
+    get_server_by_location_id,
     list_peers_for_user,
     create_peer_for_user,
     delete_peer_for_user,
@@ -53,7 +54,7 @@ def locations():
 
 @router.get("/server-info", response_model=ServerInfoOut)
 def server_info(location_id: str):
-    loc = get_location(location_id)
+    loc = get_server_by_location_id(location_id)
     if not loc:
         raise HTTPException(status_code=404, detail="Unknown location")
     return {

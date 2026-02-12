@@ -22,6 +22,8 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import User, Peer
+from app.db.models_vpn import VpnServer
+from app.modules.admin.schemas import VpnServerCreate
 
 async def list_users(db: AsyncSession):
     res = await db.execute(select(User))
@@ -52,3 +54,31 @@ async def force_delete_peer(db: AsyncSession, peer_id: str) -> None:
     # 2) Delete + commit
     await db.execute(delete(Peer).where(Peer.id == peer_id))
     await db.commit()
+
+
+# VPN Server Services
+async def create_vpn_server(db: AsyncSession, data: VpnServerCreate) -> VpnServer:
+    # normalize
+    location_id = data.location_id.strip().lower()
+
+    # ensure unique location_id
+    res = await db.execute(select(VpnServer).where(VpnServer.location_id == location_id))
+    existing = res.scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="location_id already exists")
+
+    server = VpnServer(
+        location_id=location_id,
+        label=data.label.strip(),
+        server_public_key=data.server_public_key.strip(),
+        endpoint=data.endpoint.strip(),
+        dns=data.dns.strip(),
+        allowed_ips=data.allowed_ips.strip(),
+        ping_url=data.ping_url.strip() if data.ping_url else None,
+        is_active=data.is_active,
+    )
+
+    db.add(server)
+    await db.commit()
+    await db.refresh(server)
+    return server

@@ -30,8 +30,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import LOCATIONS
 from app.db.models import Peer
 
-def get_location(location_id: str) -> dict | None:
-    return next((l for l in LOCATIONS if l["id"] == location_id), None)
+from app.db.models_vpn import VpnServer
+
+# def get_location(location_id: str) -> dict | None:
+#     return next((l for l in LOCATIONS if l["id"] == location_id), None)
+async def get_server_by_location_id(db: AsyncSession, location_id: str) -> VpnServer | None:
+    location_id = location_id.strip().lower()
+    res = await db.execute(select(VpnServer).where(
+        VpnServer.location_id == location_id,
+        VpnServer.is_active == True
+    ))
+    return res.scalar_one_or_none()
 
 async def next_allowed_ip(db: AsyncSession) -> str:
     res = await db.execute(select(Peer.allowed_ip))
@@ -54,7 +63,7 @@ async def create_peer_for_user(
     public_key: str,
     location_id: str,
 ) -> Peer:
-    loc = get_location(location_id)
+    loc = get_server_by_location_id(location_id)
     if not loc:
         raise HTTPException(status_code=404, detail="Unknown location")
 
