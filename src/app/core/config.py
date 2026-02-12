@@ -18,7 +18,21 @@ via a `settings` object used across the backend.
   Later this should move into the database so the VPN module can manage locations.
 """
 import os
+from pathlib import Path
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+# The ENV files are not currently being picked up for some reason ! review this !!! 
+# 
+# Load env vars from envs/ (same folder as this file)
+# repo root = .../wg-api
+ROOT_DIR = Path(__file__).resolve().parents[3]  # core -> app -> src -> wg-api
+ENV_PATH = ROOT_DIR / "envs" / ".env"
+
+load_dotenv(dotenv_path=ENV_PATH, override=True)
+print("Loaded ENV from:", ENV_PATH)
+print("DATABASE_URL:", os.getenv("DATABASE_URL"))
+print("DEV_MODE:", os.getenv("DEV_MODE"))
 
 def _env_bool(name: str, default: str = "false") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "y", "on"}
@@ -43,6 +57,9 @@ class Settings(BaseModel):
 
     # Dev helper: allow memory users as fallback/seed
     ALLOW_MEMORY_USERS: bool = _env_bool("ALLOW_MEMORY_USERS", "true")
+
+    # Dev helper: expose extra ops/debug endpoints (NEVER enable in prod)
+    DEV_MODE: bool = _env_bool("DEV_MODE")
 
 settings = Settings()
 

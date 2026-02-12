@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,8 +8,17 @@ from app.modules.vpn.router import router as vpn_router
 from app.modules.admin.router import router as admin_router
 from app.modules.ops.router import router as ops_router
 
+log = logging.getLogger("uvicorn")
+
 def create_app() -> FastAPI:
     app = FastAPI(title="SpartaRocket WG API")
+    
+    @app.on_event("startup")
+    async def _startup_log():
+        if settings.DEV_MODE:
+            log.warning("⚠️  SpartaRocket WG API is running in DEV MODE.")
+        else:
+            log.info("SpartaRocket WG API is running in production mode.")
 
     app.add_middleware(
         CORSMiddleware,
