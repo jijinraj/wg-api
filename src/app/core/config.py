@@ -38,7 +38,7 @@ class Settings(BaseModel):
 
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "postgresql+asyncpg://wg:wgpass@localhost:5432/wg",
+        "postgresql+asyncpg://myapp_user:pass@localhost:5432/myapp_db",
     )
 
     # Dev helper: allow memory users as fallback/seed
