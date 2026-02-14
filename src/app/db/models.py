@@ -45,7 +45,7 @@ class Peer(Base):
 
     name: Mapped[str] = mapped_column(String, nullable=False)
     public_key: Mapped[str] = mapped_column(String, nullable=False)
-    allowed_ip: Mapped[str] = mapped_column(String, nullable=False)
+    allowed_ip: Mapped[str] = mapped_column(String, unique=True, nullable=False)
 
     location_id: Mapped[str] = mapped_column(String, nullable=False)
     location_label: Mapped[str] = mapped_column(String, nullable=False)

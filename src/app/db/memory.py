@@ -2,6 +2,7 @@
 memory.py — dev-only in-memory seed data for quick testing.
 ...
 """
+import uuid
 
 from datetime import datetime, timezone
 from argon2 import PasswordHasher
@@ -13,7 +14,7 @@ def now_z() -> str:
 
 USERS = {
     "test@spartarocket.io": {
-        "id": "u1",  # ok for dev; can be uuid string too if you prefer
+        "id": str(uuid.uuid4()),  # ok for dev; can be uuid string too if you prefer
         "email": "test@spartarocket.io",
         "password_hash": ph.hash("endi"),
         "created_at": now_z(),

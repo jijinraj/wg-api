@@ -69,12 +69,11 @@ async def create_peer_for_user(
     allowed_ip = await next_allowed_ip(db)
 
     p = Peer(
-        id=str(uuid.uuid4()),
         user_id=user_id,
         name=name.strip(),
         public_key=public_key.strip(),
         allowed_ip=allowed_ip,
-        location_id=loc.location_id,
+        location_id = location_id.strip().lower(),
         location_label=loc.label,
         # ✅ created_at removed (DB default utcnow)
     )

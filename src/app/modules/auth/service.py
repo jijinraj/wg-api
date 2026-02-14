@@ -186,8 +186,9 @@ async def send_email_otp(db: AsyncSession, email: str) -> None:
 
     async with db.begin():
         await ev_repo.create_otp(db, user_id=u.id, otp_hash=otp_hash, expires_at=expires_at)
-
-    log.warning(f"[DEV OTP] Email verification OTP for {email}: {otp} (expires in {settings.EMAIL_OTP_EXP_MIN} min)")
+        
+    if settings.DEV_MODE:
+        log.warning(f"[DEV OTP] Email verification OTP for {email}: {otp} (expires in {settings.EMAIL_OTP_EXP_MIN} min)")
 
 
 async def verify_email_otp(db: AsyncSession, email: str, otp: str) -> None:
@@ -223,7 +224,8 @@ async def forgot_password(db: AsyncSession, email: str) -> None:
     async with db.begin():
         await pr_repo.create_reset(db, user_id=u.id, token_hash=token_hash, expires_at=expires_at)
 
-    log.warning(f"[DEV RESET] Password reset token for {email}: {token} (expires in {settings.PASSWORD_RESET_EXP_MIN} min)")
+    if settings.DEV_MODE:
+        log.warning(f"[DEV RESET] Password reset token for {email}: {token} (expires in {settings.PASSWORD_RESET_EXP_MIN} min)")
 
 
 async def reset_password(db: AsyncSession, email: str, token: str, new_password: str) -> None:

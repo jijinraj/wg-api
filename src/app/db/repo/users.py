@@ -32,7 +32,7 @@ async def create_user(
     )
     db.add(u)
     await db.flush()  # assigns PK without committing
-    await db.refresh(u)
+    # await db.refresh(u)
     return u
 
 
