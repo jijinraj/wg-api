@@ -47,6 +47,9 @@ async def db_ready_check(db: AsyncSession) -> dict:
     "refresh_tokens",
     "email_verifications",
     "password_resets",
+    "plans",
+    "user_plan",
+    "user_addons",
     }
     tables = await check_required_tables(db, required)
 

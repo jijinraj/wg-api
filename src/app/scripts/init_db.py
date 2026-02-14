@@ -12,9 +12,8 @@ defined in SQLAlchemy models (Base.metadata) if they don't already exist.
 """
 import asyncio
 
-from app.db import models_vpn  # noqa: F401
-from app.db import models_auth  # noqa: F401
 from app.db.session import engine
+from app.db import models_plans, models_auth, models_vpn
 from app.db.models import Base
 
 

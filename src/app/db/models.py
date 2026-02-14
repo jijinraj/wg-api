@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String, Boolean, ForeignKey, DateTime
+from sqlalchemy import Integer
 
 from app.core.time import utcnow
 
@@ -34,7 +35,7 @@ class User(Base):
     is_beta_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     role: Mapped[str] = mapped_column(String, default="user", nullable=False)
-
+    max_peers_override: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 class Peer(Base):
