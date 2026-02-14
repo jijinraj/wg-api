@@ -35,14 +35,7 @@ async def login(payload: LoginIn, db: AsyncSession = Depends(get_db)):
 
 @router.post("/refresh", response_model=TokenPairOut)
 async def refresh(payload: RefreshIn, db: AsyncSession = Depends(get_db)):
-    u = await service.refresh(db, payload.refresh_token)
-
-    # rotate old refresh token
-    await service.logout(db, payload.refresh_token)
-
-    # issue new refresh token
-    new_refresh = await service.issue_refresh_for_user(db, u)
-
+    u, new_refresh = await service.refresh_rotate(db, payload.refresh_token)
     return {"access_token": make_access_token(u.id), "refresh_token": new_refresh}
 
 
