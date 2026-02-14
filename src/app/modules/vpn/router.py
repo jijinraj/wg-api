@@ -71,18 +71,18 @@ async def server_info(location_id: str, db: AsyncSession = Depends(get_db)):
 async def my_peers(user=Depends(get_user), db: AsyncSession = Depends(get_db)):
     rows = await list_peers_for_user(db, user.id)
     return {
-        "items": [
-            PeerOut(
-                id=p.id,
-                name=p.name,
-                public_key=p.public_key,
-                allowed_ip=p.allowed_ip,
-                location_id=p.location_id,
-                location_label=p.location_label,
-            )
-            for p in rows
-        ]
-    }
+    "items": [
+        PeerOut(
+            id=p.id,
+            name=p.name,
+            public_key=p.public_key,
+            allowed_ip=p.allowed_ip,
+            location_id=p.location_id,
+            location_label=p.location_label,  # ✅ FIX
+        )
+        for p in rows
+    ]
+}
 
 @router.post("/me/peers", response_model=PeerOut)
 async def add_peer(data: PeerCreateIn, user=Depends(get_user), db: AsyncSession = Depends(get_db)):
@@ -103,8 +103,9 @@ async def add_peer(data: PeerCreateIn, user=Depends(get_user), db: AsyncSession 
         public_key=p.public_key,
         allowed_ip=p.allowed_ip,
         location_id=p.location_id,
-        location_label=p.location_label,
-    )
+        location_label=p.location_label,  # ✅ FIX
+)
+
 
 @router.delete("/me/peers/{peer_id}")
 async def remove_peer(peer_id: str, user=Depends(get_user), db: AsyncSession = Depends(get_db)):

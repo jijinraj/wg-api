@@ -25,6 +25,7 @@ Uses:
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.formatting import iso
 from app.core.security import require_admin
 from app.db.session import get_db
 from app.modules.admin.schemas import AdminUserUpdate, VpnServerCreate, VpnServerUpdate
@@ -40,9 +41,6 @@ from app.modules.admin.service import (
     update_user_admin,
     delete_user_admin,
 )
-
-def iso(dt):
-    return dt.isoformat() if dt else None
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

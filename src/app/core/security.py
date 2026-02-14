@@ -17,13 +17,12 @@ security = HTTPBearer()
 def make_access_token(user_id: str) -> str:
     exp = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXP_MIN)
     return jwt.encode(
-        {"sub": user_id, "exp": int(exp.timestamp())},
+        {"sub": user_id, "exp": int(exp.timestamp())},  # ✅ epoch seconds
         settings.JWT_SECRET,
         algorithm=settings.JWT_ALG,
     )
 
 def make_refresh_token() -> str:
-    # long, random, unguessable
     return secrets.token_urlsafe(48)
 
 def hash_token(raw: str) -> str:

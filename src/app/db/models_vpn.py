@@ -1,14 +1,13 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import String, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.models import Base
-
-def utcnow():
-    return datetime.now(timezone.utc)
+from app.core.time import utcnow
+from app.core.formatting import iso
 
 class VpnServer(Base):
     __tablename__ = "vpn_servers"
@@ -40,5 +39,5 @@ class VpnServer(Base):
             "allowed_ips": self.allowed_ips,
             "ping_url": self.ping_url,
             "is_active": self.is_active,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": iso(self.created_at),
         }

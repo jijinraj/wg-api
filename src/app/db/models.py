@@ -15,15 +15,14 @@ Notes:
   (can be upgraded to proper DateTime later).
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String, Boolean, ForeignKey, DateTime
 
+from app.core.time import utcnow
+
 class Base(DeclarativeBase):
     pass
-
-def utcnow():
-    return datetime.now(timezone.utc)
 
 class User(Base):
     __tablename__ = "users"
@@ -32,9 +31,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
 
-    is_beta_approved: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    role: Mapped[str] = mapped_column(String, default="user")
+    is_beta_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    role: Mapped[str] = mapped_column(String, default="user", nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 

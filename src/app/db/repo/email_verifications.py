@@ -1,9 +1,7 @@
-from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_auth import EmailVerification
-
 
 async def create_otp(
     db: AsyncSession,
@@ -15,7 +13,6 @@ async def create_otp(
     rec = EmailVerification(
         user_id=user_id,
         otp_hash=otp_hash,
-        created_at=datetime.now(timezone.utc),
         expires_at=expires_at,
         is_used=False,
     )
@@ -23,13 +20,7 @@ async def create_otp(
     await db.flush()
     return rec
 
-
-async def find_latest_valid(
-    db: AsyncSession,
-    *,
-    user_id: str,
-    otp_hash: str,
-) -> EmailVerification | None:
+async def find_latest_valid(db: AsyncSession, *, user_id: str, otp_hash: str) -> EmailVerification | None:
     res = await db.execute(
         select(EmailVerification)
         .where(
@@ -40,7 +31,6 @@ async def find_latest_valid(
         .order_by(EmailVerification.created_at.desc())
     )
     return res.scalars().first()
-
 
 async def mark_used(db: AsyncSession, rec: EmailVerification) -> None:
     rec.is_used = True

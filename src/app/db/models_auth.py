@@ -1,13 +1,11 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import String, DateTime, ForeignKey, Boolean, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.models import Base
-
-def utcnow():
-    return datetime.now(timezone.utc)
+from app.core.time import utcnow
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"

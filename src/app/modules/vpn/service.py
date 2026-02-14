@@ -21,15 +21,12 @@ Notes:
   is planned later (SSH/agent/API integration).
 """
 import uuid
-from datetime import datetime, timezone
-
 from fastapi import HTTPException
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Peer
 from app.db.models_vpn import VpnServer
-
 
 async def list_active_servers(db: AsyncSession) -> list[VpnServer]:
     res = await db.execute(
@@ -79,13 +76,12 @@ async def create_peer_for_user(
         allowed_ip=allowed_ip,
         location_id=loc.location_id,
         location_label=loc.label,
-        created_at=datetime.now(timezone.utc),
+        # ✅ created_at removed (DB default utcnow)
     )
 
     db.add(p)
     await db.commit()
     await db.refresh(p)
-
     # TODO later: apply peer to WG server for that location (ssh, agent, API, etc.)
     return p
 
@@ -97,5 +93,4 @@ async def delete_peer_for_user(db: AsyncSession, *, user_id: str, peer_id: str) 
 
     await db.execute(delete(Peer).where(Peer.id == peer_id))
     await db.commit()
-
     # TODO later: remove peer from WG server
