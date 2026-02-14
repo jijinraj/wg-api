@@ -1,2 +1,4 @@
 *__pycache__
 wg_api.egg-info
+src/dump_py_to_one.bat
+src/repo_python_dump.txt
