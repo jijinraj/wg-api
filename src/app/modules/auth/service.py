@@ -154,7 +154,7 @@ async def refresh_rotate(db: AsyncSession, refresh_token: str):
     if rt.revoked_at is not None:
         raise HTTPException(status_code=401, detail="Refresh token revoked")
 
-    if rt.expires_at <= datetime.now(timezone.utc):
+    if ensure_aware_utc(rt.expires_at) <= datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Refresh token expired")
 
     u = await users_repo.get_by_id(db, rt.user_id)
