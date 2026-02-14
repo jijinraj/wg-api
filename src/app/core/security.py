@@ -1,25 +1,5 @@
-"""
-security.py — creates and checks login tokens, and it blocks routes unless the user is logged in (or is an admin).
-
-JWT auth helpers + route protection dependencies.
-
-This file handles authentication and authorization for the API.
-
-- security = HTTPBearer(): reads "Authorization: Bearer <token>" from requests.
-- make_token(user_id): creates a signed JWT containing:
-  - sub = user_id (who the token belongs to)
-  - exp = expiry time (based on settings.JWT_EXP_MIN)
-- get_user(): FastAPI dependency that:
-  1) extracts the Bearer token
-  2) verifies/decodes it using JWT_SECRET + JWT_ALG
-  3) fetches the User from the database using the `sub` claim
-  4) returns the User or raises 401 if invalid/missing
-- require_admin(): dependency that allows only users with role == "admin" (otherwise 403).
-
-Used in routes like:
-  user: User = Depends(get_user)
-  admin: User = Depends(require_admin)
-"""
+import hashlib
+import secrets
 from datetime import datetime, timedelta
 
 from fastapi import Depends, HTTPException
@@ -34,9 +14,16 @@ from app.db.models import User
 
 security = HTTPBearer()
 
-def make_token(user_id: str) -> str:
-    exp = datetime.utcnow() + timedelta(minutes=settings.JWT_EXP_MIN)
+def make_access_token(user_id: str) -> str:
+    exp = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXP_MIN)
     return jwt.encode({"sub": user_id, "exp": exp}, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
+
+def make_refresh_token() -> str:
+    # long, random, unguessable
+    return secrets.token_urlsafe(48)
+
+def hash_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 async def get_user(
     creds: HTTPAuthorizationCredentials = Depends(security),

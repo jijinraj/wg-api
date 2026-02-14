@@ -55,6 +55,14 @@ def _env_list(name: str, default: str = "*") -> list[str]:
     return [x.strip() for x in raw.split(",") if x.strip()]
 
 class Settings(BaseModel):
+    ACCESS_TOKEN_EXP_MIN: int = int(os.getenv("ACCESS_TOKEN_EXP_MIN", "15"))
+    REFRESH_TOKEN_EXP_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXP_DAYS", "14"))
+
+    EMAIL_OTP_EXP_MIN: int = int(os.getenv("EMAIL_OTP_EXP_MIN", "10"))
+    PASSWORD_RESET_EXP_MIN: int = int(os.getenv("PASSWORD_RESET_EXP_MIN", "15"))
+
+    REQUIRE_EMAIL_VERIFIED: bool = _env_bool("REQUIRE_EMAIL_VERIFIED", "false")
+
     JWT_SECRET: str = os.getenv("JWT_SECRET", "CHANGE_ME")
     JWT_ALG: str = os.getenv("JWT_ALG", "HS256")
     JWT_EXP_MIN: int = int(os.getenv("JWT_EXP_MIN", str(60 * 24)))
