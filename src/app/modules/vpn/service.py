@@ -27,6 +27,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Peer
 from app.db.models_vpn import VpnServer
+from sqlalchemy.exc import IntegrityError
+
 
 async def list_active_servers(db: AsyncSession) -> list[VpnServer]:
     res = await db.execute(
@@ -66,23 +68,26 @@ async def create_peer_for_user(
     if not loc:
         raise HTTPException(status_code=404, detail="Unknown location")
 
-    allowed_ip = await next_allowed_ip(db)
+    for _ in range(3):
+        allowed_ip = await next_allowed_ip(db)
+        p = Peer(
+            user_id=user_id,
+            name=name.strip(),
+            public_key=public_key.strip(),
+            allowed_ip=allowed_ip,
+            location_id=loc.location_id,      # use canonical id
+            location_label=loc.label,
+        )
+        db.add(p)
+        try:
+            await db.commit()
+            await db.refresh(p)
+            return p
+        except IntegrityError:
+            await db.rollback()
+            continue
 
-    p = Peer(
-        user_id=user_id,
-        name=name.strip(),
-        public_key=public_key.strip(),
-        allowed_ip=allowed_ip,
-        location_id = location_id.strip().lower(),
-        location_label=loc.label,
-        # ✅ created_at removed (DB default utcnow)
-    )
-
-    db.add(p)
-    await db.commit()
-    await db.refresh(p)
-    # TODO later: apply peer to WG server for that location (ssh, agent, API, etc.)
-    return p
+    raise HTTPException(status_code=409, detail="Failed to allocate IP, retry")
 
 async def delete_peer_for_user(db: AsyncSession, *, user_id: str, peer_id: str) -> None:
     res = await db.execute(select(Peer).where(Peer.id == peer_id, Peer.user_id == user_id))

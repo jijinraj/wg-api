@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.modules.ops.service import db_ping, db_ready_check
+from app.core.config import settings
+
 
 router = APIRouter(prefix="/ops", tags=["ops"])
 
@@ -41,3 +43,7 @@ async def readiness(db: AsyncSession = Depends(get_db)):
         raise
     except Exception:
         raise HTTPException(status_code=503, detail="DB unavailable")
+
+@router.get("/version")
+def version():
+    return {"name": settings.APP_NAME, "version": settings.APP_VERSION}

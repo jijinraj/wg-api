@@ -37,16 +37,15 @@ def _find_env_path() -> Path | None:
             return candidate
     return None
 
+def _env_bool(name: str, default: str = "false") -> bool:
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "y", "on"}
+
 ENV_PATH = _find_env_path()
 if ENV_PATH:
     load_dotenv(dotenv_path=ENV_PATH, override=True)
-    # Only log (don’t print) to keep production clean
     log.info(f"Loaded ENV from: {ENV_PATH}")
 else:
     log.warning("No envs/.env found. Using environment variables + defaults only.")
-
-def _env_bool(name: str, default: str = "false") -> bool:
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 def _env_list(name: str, default: str = "*") -> list[str]:
     raw = os.getenv(name, default).strip()
@@ -80,5 +79,9 @@ class Settings(BaseModel):
 
     # Dev helper: expose extra ops/debug endpoints (NEVER enable in prod)
     DEV_MODE: bool = _env_bool("DEV_MODE", "false")
+
+    # App Name And Versioning
+    APP_NAME: str = os.getenv("APP_NAME", "spartarocket-wg-api")
+    APP_VERSION: str = os.getenv("APP_VERSION", "0.1.0")
 
 settings = Settings()
