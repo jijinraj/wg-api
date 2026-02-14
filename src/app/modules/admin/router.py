@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import require_admin
 from app.db.session import get_db
+from app.modules.admin.schemas import AdminUserUpdate, VpnServerCreate, VpnServerUpdate
 from app.modules.admin.service import (
     list_users,
     approve_user_by_email,
@@ -40,11 +41,8 @@ from app.modules.admin.service import (
     delete_user_admin,
 )
 
-from app.modules.admin.schemas import AdminUserUpdate
-from app.modules.admin.schemas import VpnServerCreate,VpnServerUpdate
-from app.modules.admin.service import create_vpn_server
-from app.modules.admin.service import update_user_admin, delete_user_admin
-
+def iso(dt):
+    return dt.isoformat() if dt else None
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -59,7 +57,7 @@ async def users(admin=Depends(require_admin), db: AsyncSession = Depends(get_db)
                 "is_beta_approved": u.is_beta_approved,
                 "is_email_verified": u.is_email_verified,
                 "role": u.role,
-                "created_at": u.created_at,
+                "created_at": iso(u.created_at),
             }
             for u in rows
         ]
@@ -85,7 +83,7 @@ async def patch_user(
         "is_beta_approved": u.is_beta_approved,
         "is_email_verified": u.is_email_verified,
         "role": u.role,
-        "created_at": u.created_at,
+        "created_at": iso(u.created_at),
     }
 
 @router.delete("/users/{user_id}")
@@ -110,7 +108,7 @@ async def user_peers(user_id: str, admin=Depends(require_admin), db: AsyncSessio
                 "allowed_ip": p.allowed_ip,
                 "location_id": p.location_id,
                 "location_label": p.location_label,
-                "created_at": p.created_at,
+                "created_at": iso(p.created_at),
             }
             for p in rows
         ]
@@ -145,7 +143,7 @@ async def add_vpn_server(
         "allowed_ips": s.allowed_ips,
         "ping_url": s.ping_url,
         "is_active": s.is_active,
-        "created_at": s.created_at,
+        "created_at": iso(s.created_at),
     }
 
 @router.patch("/vpn/servers/{server_id}")

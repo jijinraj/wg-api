@@ -21,7 +21,7 @@ Notes:
   is planned later (SSH/agent/API integration).
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import select, delete
@@ -79,7 +79,7 @@ async def create_peer_for_user(
         allowed_ip=allowed_ip,
         location_id=loc.location_id,
         location_label=loc.label,
-        created_at=datetime.utcnow().isoformat(),
+        created_at=datetime.now(timezone.utc),
     )
 
     db.add(p)

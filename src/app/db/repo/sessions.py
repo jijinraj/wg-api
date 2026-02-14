@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +18,7 @@ async def create_refresh_token(
         user_id=user_id,
         token_hash=token_hash,
         expires_at=expires_at,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         revoked_at=None,
         ip=ip,
         user_agent=user_agent,
@@ -41,5 +41,5 @@ async def revoke(db: AsyncSession, token_hash: str) -> bool:
     if not rt:
         return False
     if rt.revoked_at is None:
-        rt.revoked_at = datetime.utcnow()
+        rt.revoked_at = datetime.now(timezone.utc)
     return True

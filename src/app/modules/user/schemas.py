@@ -6,4 +6,4 @@ class MeOut(BaseModel):
     role: str
     is_beta_approved: bool
     is_email_verified: bool
-    created_at: str
+    created_at: str | None

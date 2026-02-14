@@ -14,15 +14,16 @@ Notes:
 - `created_at` currently uses a String with DB default `now()` 
   (can be upgraded to proper DateTime later).
 """
-
-
-
 import uuid
+from datetime import datetime, timezone
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Boolean, ForeignKey, text
+from sqlalchemy import String, Boolean, ForeignKey, DateTime
 
 class Base(DeclarativeBase):
     pass
+
+def utcnow():
+    return datetime.now(timezone.utc)
 
 class User(Base):
     __tablename__ = "users"
@@ -35,8 +36,7 @@ class User(Base):
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     role: Mapped[str] = mapped_column(String, default="user")
 
-    # keep string for now (works); later you can convert to DateTime properly
-    created_at: Mapped[str] = mapped_column(String, server_default=text("now()"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 class Peer(Base):
     __tablename__ = "peers"
@@ -51,5 +51,4 @@ class Peer(Base):
     location_id: Mapped[str] = mapped_column(String, nullable=False)
     location_label: Mapped[str] = mapped_column(String, nullable=False)
 
-    created_at: Mapped[str] = mapped_column(String, server_default=text("now()"))
-
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

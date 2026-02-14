@@ -14,6 +14,8 @@ This module will later contain:
 from fastapi import APIRouter, Depends
 from app.core.security import get_user
 
+from app.modules.ops.service import iso
+
 router = APIRouter(prefix="/user", tags=["user"])
 
 @router.get("/me")
@@ -25,5 +27,5 @@ async def me(user=Depends(get_user)):
         "role": user.role,
         "is_beta_approved": user.is_beta_approved,
         "is_email_verified": user.is_email_verified,
-        "created_at": user.created_at,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
     }

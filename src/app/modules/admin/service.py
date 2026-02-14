@@ -16,6 +16,7 @@ Notes:
 - Email normalization uses strip().lower() to avoid case/spacing mismatches.
 - The delete function includes a 404 existence check so the API doesn't silently succeed on invalid IDs.
 """
+import uuid
 
 from fastapi import HTTPException
 from sqlalchemy import select, update, delete
@@ -140,34 +141,38 @@ async def list_vpn_servers(db: AsyncSession) -> list[VpnServer]:
     return res.scalars().all()
 
 
+
 async def update_vpn_server(db: AsyncSession, server_id: str, data: VpnServerUpdate) -> VpnServer:
+    # Parse UUID safely
+    try:
+        server_uuid = uuid.UUID(server_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid server_id (must be UUID)")
+
     # 1) Check server exists
-    res = await db.execute(select(VpnServer).where(VpnServer.id == server_id))
+    res = await db.execute(select(VpnServer).where(VpnServer.id == server_uuid))
     s = res.scalar_one_or_none()
     if not s:
         raise HTTPException(status_code=404, detail="VPN server not found")
 
     patch = {}
 
-    # location_id (optional) - enforce uniqueness and normalization
     if data.location_id is not None:
         new_location_id = data.location_id.strip().lower()
         if not new_location_id:
             raise HTTPException(status_code=400, detail="location_id cannot be empty")
 
-        # only check uniqueness if changed
         if new_location_id != s.location_id:
             res2 = await db.execute(select(VpnServer).where(VpnServer.location_id == new_location_id))
-            existing = res2.scalar_one_or_none()
-            if existing:
+            if res2.scalar_one_or_none():
                 raise HTTPException(status_code=409, detail="location_id already exists")
         patch["location_id"] = new_location_id
 
     if data.label is not None:
-        label = data.label.strip()
-        if not label:
+        v = data.label.strip()
+        if not v:
             raise HTTPException(status_code=400, detail="label cannot be empty")
-        patch["label"] = label
+        patch["label"] = v
 
     if data.server_public_key is not None:
         v = data.server_public_key.strip()
@@ -193,7 +198,6 @@ async def update_vpn_server(db: AsyncSession, server_id: str, data: VpnServerUpd
             raise HTTPException(status_code=400, detail="allowed_ips cannot be empty")
         patch["allowed_ips"] = v
 
-    # allow clearing ping_url by sending "" or null
     if data.ping_url is not None:
         v = data.ping_url.strip()
         patch["ping_url"] = v if v else None
@@ -205,31 +209,25 @@ async def update_vpn_server(db: AsyncSession, server_id: str, data: VpnServerUpd
         return s
 
     try:
-        await db.execute(update(VpnServer).where(VpnServer.id == server_id).values(**patch))
+        await db.execute(update(VpnServer).where(VpnServer.id == server_uuid).values(**patch))
         await db.commit()
     except IntegrityError:
-        # in case DB has unique constraints that conflict
         await db.rollback()
         raise HTTPException(status_code=409, detail="Update violates a constraint")
 
-    # refresh and return
-    res3 = await db.execute(select(VpnServer).where(VpnServer.id == server_id))
+    res3 = await db.execute(select(VpnServer).where(VpnServer.id == server_uuid))
     return res3.scalar_one()
 
-
 async def delete_vpn_server(db: AsyncSession, server_id: str) -> None:
-    # 1) Check existence
-    res = await db.execute(select(VpnServer).where(VpnServer.id == server_id))
+    try:
+        server_uuid = uuid.UUID(server_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid server_id (must be UUID)")
+
+    res = await db.execute(select(VpnServer).where(VpnServer.id == server_uuid))
     s = res.scalar_one_or_none()
     if not s:
         raise HTTPException(status_code=404, detail="VPN server not found")
 
-    # 2) Optional safety: prevent deleting if peers still reference it (if you want strict behavior)
-    # If your Peers reference location_id, you might want to prevent deleting an active server with peers.
-    # Uncomment if you want:
-    # res2 = await db.execute(select(Peer.id).where(Peer.location_id == s.location_id).limit(1))
-    # if res2.scalar_one_or_none():
-    #     raise HTTPException(status_code=409, detail="Server has peers; delete/move peers first")
-
-    await db.execute(delete(VpnServer).where(VpnServer.id == server_id))
+    await db.execute(delete(VpnServer).where(VpnServer.id == server_uuid))
     await db.commit()

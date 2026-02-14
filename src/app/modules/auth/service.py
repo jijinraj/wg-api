@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 
 from fastapi import HTTPException
@@ -58,7 +58,7 @@ async def register(db: AsyncSession, email: str, password: str):
             "id": u.id,
             "email": u.email,
             "password_hash": u.password_hash,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "is_beta_approved": u.is_beta_approved,
             "is_email_verified": u.is_email_verified,
             "provider": "password",
@@ -103,7 +103,7 @@ async def login(db: AsyncSession, email: str, password: str):
         raise HTTPException(status_code=403, detail="Email not verified")
 
     raw_refresh = make_refresh_token()
-    expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
 
     async with db.begin():
         await sessions_repo.create_refresh_token(
@@ -136,7 +136,7 @@ async def refresh_rotate(db: AsyncSession, refresh_token: str):
         if rt.revoked_at is not None:
             raise HTTPException(status_code=401, detail="Refresh token revoked")
 
-        if rt.expires_at <= datetime.utcnow():
+        if rt.expires_at <= datetime.now(timezone.utc):
             raise HTTPException(status_code=401, detail="Refresh token expired")
 
         u = await users_repo.get_by_id(db, rt.user_id)
@@ -150,11 +150,11 @@ async def refresh_rotate(db: AsyncSession, refresh_token: str):
             raise HTTPException(status_code=403, detail="Email not verified")
 
         # revoke old
-        rt.revoked_at = datetime.utcnow()
+        rt.revoked_at = datetime.now(timezone.utc)
 
         # issue new
         new_raw = make_refresh_token()
-        new_expires = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
+        new_expires = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
         await sessions_repo.create_refresh_token(
             db,
             user_id=u.id,
@@ -182,7 +182,7 @@ async def send_email_otp(db: AsyncSession, email: str) -> None:
 
     otp = f"{secrets.randbelow(900000) + 100000}"  # 6 digits
     otp_hash = _hash_otp(otp)
-    expires_at = datetime.utcnow() + timedelta(minutes=settings.EMAIL_OTP_EXP_MIN)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.EMAIL_OTP_EXP_MIN)
 
     async with db.begin():
         await ev_repo.create_otp(db, user_id=u.id, otp_hash=otp_hash, expires_at=expires_at)
@@ -203,7 +203,7 @@ async def verify_email_otp(db: AsyncSession, email: str, otp: str) -> None:
         if not rec:
             raise HTTPException(status_code=400, detail="Invalid OTP")
 
-        if rec.expires_at <= datetime.utcnow():
+        if rec.expires_at <= datetime.now(timezone.utc):
             raise HTTPException(status_code=400, detail="OTP expired")
 
         await ev_repo.mark_used(db, rec)
@@ -218,7 +218,7 @@ async def forgot_password(db: AsyncSession, email: str) -> None:
 
     token = secrets.token_urlsafe(32)
     token_hash = hash_token(token)
-    expires_at = datetime.utcnow() + timedelta(minutes=settings.PASSWORD_RESET_EXP_MIN)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.PASSWORD_RESET_EXP_MIN)
 
     async with db.begin():
         await pr_repo.create_reset(db, user_id=u.id, token_hash=token_hash, expires_at=expires_at)
@@ -242,7 +242,7 @@ async def reset_password(db: AsyncSession, email: str, token: str, new_password:
         if not rec:
             raise HTTPException(status_code=400, detail="Invalid reset token")
 
-        if rec.expires_at <= datetime.utcnow():
+        if rec.expires_at <= datetime.now(timezone.utc):
             raise HTTPException(status_code=400, detail="Reset token expired")
 
         await pr_repo.mark_used(db, rec)
@@ -255,7 +255,7 @@ async def issue_refresh_for_user(db: AsyncSession, user) -> str:
     (Not used by /auth/refresh anymore.)
     """
     raw_refresh = make_refresh_token()
-    expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
     async with db.begin():
         await sessions_repo.create_refresh_token(
             db,

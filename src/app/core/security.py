@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -15,8 +15,12 @@ from app.db.models import User
 security = HTTPBearer()
 
 def make_access_token(user_id: str) -> str:
-    exp = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXP_MIN)
-    return jwt.encode({"sub": user_id, "exp": exp}, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
+    exp = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXP_MIN)
+    return jwt.encode(
+        {"sub": user_id, "exp": int(exp.timestamp())},
+        settings.JWT_SECRET,
+        algorithm=settings.JWT_ALG,
+    )
 
 def make_refresh_token() -> str:
     # long, random, unguessable

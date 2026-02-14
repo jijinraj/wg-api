@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import String, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
@@ -7,17 +7,19 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.models import Base
 
+def utcnow():
+    return datetime.now(timezone.utc)
+
 class VpnServer(Base):
     __tablename__ = "vpn_servers"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # like "de-fra", "uk-lon" (must be unique)
     location_id: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     label: Mapped[str] = mapped_column(String(128), nullable=False)
 
     server_public_key: Mapped[str] = mapped_column(String(128), nullable=False)
-    endpoint: Mapped[str] = mapped_column(String(255), nullable=False)  # "de.vpn.yourdomain.com:51820"
+    endpoint: Mapped[str] = mapped_column(String(255), nullable=False)
 
     dns: Mapped[str] = mapped_column(String(255), nullable=False, default="1.1.1.1")
     allowed_ips: Mapped[str] = mapped_column(String(255), nullable=False, default="0.0.0.0/0, ::/0")
@@ -25,7 +27,7 @@ class VpnServer(Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     def to_dict(self) -> dict:
         return {
