@@ -4,6 +4,7 @@ import secrets
 
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from argon2.exceptions import VerifyMismatchError
 
 from app.core.config import settings
@@ -42,7 +43,7 @@ async def register(db: AsyncSession, email: str, password: str):
     if len(password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
-    async with db.begin():
+    try:
         u = await users_repo.create_user(
             db,
             email=email,
@@ -51,6 +52,11 @@ async def register(db: AsyncSession, email: str, password: str):
             is_beta_approved=False,
             is_email_verified=False,
         )
+        await db.commit()
+        await db.refresh(u)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Email already registered")
 
     # Dev side-load memory (optional)
     if settings.ALLOW_MEMORY_USERS:
@@ -83,7 +89,7 @@ async def login(db: AsyncSession, email: str, password: str):
             raise HTTPException(status_code=403, detail="Not approved for beta yet")
 
         # seed into DB
-        async with db.begin():
+        try:
             u = await users_repo.create_user(
                 db,
                 email=mem["email"],
@@ -92,6 +98,11 @@ async def login(db: AsyncSession, email: str, password: str):
                 is_beta_approved=mem.get("is_beta_approved", False),
                 is_email_verified=mem.get("is_email_verified", False),
             )
+            await db.commit()
+            await db.refresh(u)
+        except IntegrityError:
+            await db.rollback()
+            u = await users_repo.get_by_email(db, email)
 
     if u is None or not _verify(u.password_hash, password):
         raise HTTPException(status_code=401, detail="Wrong email or password")
@@ -105,7 +116,7 @@ async def login(db: AsyncSession, email: str, password: str):
     raw_refresh = make_refresh_token()
     expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
 
-    async with db.begin():
+    try:
         await sessions_repo.create_refresh_token(
             db,
             user_id=u.id,
@@ -114,47 +125,51 @@ async def login(db: AsyncSession, email: str, password: str):
             ip=None,
             user_agent=None,
         )
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to create session")
 
     return u, raw_refresh
 
 
 async def refresh_rotate(db: AsyncSession, refresh_token: str):
     """
-    Atomic refresh rotation:
+    Refresh rotation (Phase-1 safe):
     - validate refresh token row
     - revoke it
     - issue a new refresh token row
-    All in ONE transaction so the user never loses session due to partial failures.
+    Uses commit/rollback without nested db.begin() to avoid InvalidRequestError.
     """
     old_hash = hash_token(refresh_token)
 
-    async with db.begin():
-        rt = await sessions_repo.get_by_hash(db, old_hash, for_update=True)
-        if not rt:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
+    rt = await sessions_repo.get_by_hash(db, old_hash, for_update=False)
+    if not rt:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-        if rt.revoked_at is not None:
-            raise HTTPException(status_code=401, detail="Refresh token revoked")
+    if rt.revoked_at is not None:
+        raise HTTPException(status_code=401, detail="Refresh token revoked")
 
-        if rt.expires_at <= datetime.now(timezone.utc):
-            raise HTTPException(status_code=401, detail="Refresh token expired")
+    if rt.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="Refresh token expired")
 
-        u = await users_repo.get_by_id(db, rt.user_id)
-        if not u:
-            raise HTTPException(status_code=401, detail="User not found")
+    u = await users_repo.get_by_id(db, rt.user_id)
+    if not u:
+        raise HTTPException(status_code=401, detail="User not found")
 
-        if not u.is_beta_approved:
-            raise HTTPException(status_code=403, detail="Not approved for beta yet")
+    if not u.is_beta_approved:
+        raise HTTPException(status_code=403, detail="Not approved for beta yet")
 
-        if settings.REQUIRE_EMAIL_VERIFIED and not u.is_email_verified:
-            raise HTTPException(status_code=403, detail="Email not verified")
+    if settings.REQUIRE_EMAIL_VERIFIED and not u.is_email_verified:
+        raise HTTPException(status_code=403, detail="Email not verified")
 
-        # revoke old
-        rt.revoked_at = datetime.now(timezone.utc)
+    # revoke old + issue new
+    rt.revoked_at = datetime.now(timezone.utc)
 
-        # issue new
-        new_raw = make_refresh_token()
-        new_expires = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
+    new_raw = make_refresh_token()
+    new_expires = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
+
+    try:
         await sessions_repo.create_refresh_token(
             db,
             user_id=u.id,
@@ -163,15 +178,22 @@ async def refresh_rotate(db: AsyncSession, refresh_token: str):
             ip=None,
             user_agent=None,
         )
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to rotate session")
 
     return u, new_raw
 
 
 async def logout(db: AsyncSession, refresh_token: str) -> None:
     token_hash = hash_token(refresh_token)
-    async with db.begin():
+    try:
         await sessions_repo.revoke(db, token_hash)
-    # intentionally silent on missing token
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        # intentionally silent
 
 
 async def send_email_otp(db: AsyncSession, email: str) -> None:
@@ -184,11 +206,18 @@ async def send_email_otp(db: AsyncSession, email: str) -> None:
     otp_hash = _hash_otp(otp)
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.EMAIL_OTP_EXP_MIN)
 
-    async with db.begin():
+    try:
         await ev_repo.create_otp(db, user_id=u.id, otp_hash=otp_hash, expires_at=expires_at)
-        
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
     if settings.DEV_MODE:
-        log.warning(f"[DEV OTP] Email verification OTP for {email}: {otp} (expires in {settings.EMAIL_OTP_EXP_MIN} min)")
+        log.warning(
+            f"[DEV OTP] Email verification OTP for {email}: {otp} "
+            f"(expires in {settings.EMAIL_OTP_EXP_MIN} min)"
+        )
 
 
 async def verify_email_otp(db: AsyncSession, email: str, otp: str) -> None:
@@ -199,16 +228,20 @@ async def verify_email_otp(db: AsyncSession, email: str, otp: str) -> None:
 
     otp_hash = _hash_otp(otp)
 
-    async with db.begin():
-        rec = await ev_repo.find_latest_valid(db, user_id=u.id, otp_hash=otp_hash)
-        if not rec:
-            raise HTTPException(status_code=400, detail="Invalid OTP")
+    rec = await ev_repo.find_latest_valid(db, user_id=u.id, otp_hash=otp_hash)
+    if not rec:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
 
-        if rec.expires_at <= datetime.now(timezone.utc):
-            raise HTTPException(status_code=400, detail="OTP expired")
+    if rec.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="OTP expired")
 
+    try:
         await ev_repo.mark_used(db, rec)
         await users_repo.set_email_verified(db, u.id, True)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
 
 
 async def forgot_password(db: AsyncSession, email: str) -> None:
@@ -221,11 +254,18 @@ async def forgot_password(db: AsyncSession, email: str) -> None:
     token_hash = hash_token(token)
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.PASSWORD_RESET_EXP_MIN)
 
-    async with db.begin():
+    try:
         await pr_repo.create_reset(db, user_id=u.id, token_hash=token_hash, expires_at=expires_at)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
 
     if settings.DEV_MODE:
-        log.warning(f"[DEV RESET] Password reset token for {email}: {token} (expires in {settings.PASSWORD_RESET_EXP_MIN} min)")
+        log.warning(
+            f"[DEV RESET] Password reset token for {email}: {token} "
+            f"(expires in {settings.PASSWORD_RESET_EXP_MIN} min)"
+        )
 
 
 async def reset_password(db: AsyncSession, email: str, token: str, new_password: str) -> None:
@@ -239,16 +279,20 @@ async def reset_password(db: AsyncSession, email: str, token: str, new_password:
 
     token_hash = hash_token(token)
 
-    async with db.begin():
-        rec = await pr_repo.find_latest_valid(db, user_id=u.id, token_hash=token_hash)
-        if not rec:
-            raise HTTPException(status_code=400, detail="Invalid reset token")
+    rec = await pr_repo.find_latest_valid(db, user_id=u.id, token_hash=token_hash)
+    if not rec:
+        raise HTTPException(status_code=400, detail="Invalid reset token")
 
-        if rec.expires_at <= datetime.now(timezone.utc):
-            raise HTTPException(status_code=400, detail="Reset token expired")
+    if rec.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Reset token expired")
 
+    try:
         await pr_repo.mark_used(db, rec)
         await users_repo.set_password_hash(db, u.id, ph.hash(new_password))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
 
 
 async def issue_refresh_for_user(db: AsyncSession, user) -> str:
@@ -258,7 +302,7 @@ async def issue_refresh_for_user(db: AsyncSession, user) -> str:
     """
     raw_refresh = make_refresh_token()
     expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXP_DAYS)
-    async with db.begin():
+    try:
         await sessions_repo.create_refresh_token(
             db,
             user_id=user.id,
@@ -267,6 +311,10 @@ async def issue_refresh_for_user(db: AsyncSession, user) -> str:
             ip=None,
             user_agent=None,
         )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
     return raw_refresh
 
 
