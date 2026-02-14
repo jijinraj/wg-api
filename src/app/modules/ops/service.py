@@ -40,7 +40,7 @@ async def db_ready_check(db: AsyncSession) -> dict:
     """
     await db_ping(db)
 
-    required = {"users", "peers"}
+    required = {"users", "peers","vpn_servers"}
     tables = await check_required_tables(db, required)
 
     return {

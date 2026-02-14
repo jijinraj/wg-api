@@ -27,19 +27,21 @@ from fastapi import HTTPException
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import LOCATIONS
 from app.db.models import Peer
-
 from app.db.models_vpn import VpnServer
 
-# def get_location(location_id: str) -> dict | None:
-#     return next((l for l in LOCATIONS if l["id"] == location_id), None)
+
+async def list_active_servers(db: AsyncSession) -> list[VpnServer]:
+    res = await db.execute(
+        select(VpnServer).where(VpnServer.is_active == True).order_by(VpnServer.label.asc())
+    )
+    return res.scalars().all()
+
 async def get_server_by_location_id(db: AsyncSession, location_id: str) -> VpnServer | None:
     location_id = location_id.strip().lower()
-    res = await db.execute(select(VpnServer).where(
-        VpnServer.location_id == location_id,
-        VpnServer.is_active == True
-    ))
+    res = await db.execute(
+        select(VpnServer).where(VpnServer.location_id == location_id, VpnServer.is_active == True)
+    )
     return res.scalar_one_or_none()
 
 async def next_allowed_ip(db: AsyncSession) -> str:
@@ -63,7 +65,7 @@ async def create_peer_for_user(
     public_key: str,
     location_id: str,
 ) -> Peer:
-    loc = get_server_by_location_id(location_id)
+    loc = await get_server_by_location_id(db, location_id)
     if not loc:
         raise HTTPException(status_code=404, detail="Unknown location")
 
@@ -75,8 +77,8 @@ async def create_peer_for_user(
         name=name.strip(),
         public_key=public_key.strip(),
         allowed_ip=allowed_ip,
-        location_id=location_id,
-        location_label=loc["label"],
+        location_id=loc.location_id,
+        location_label=loc.label,
         created_at=datetime.utcnow().isoformat(),
     )
 
@@ -84,9 +86,7 @@ async def create_peer_for_user(
     await db.commit()
     await db.refresh(p)
 
-    # TODO later:
-    # apply peer to WG server for that location (ssh, agent, API, etc.)
-
+    # TODO later: apply peer to WG server for that location (ssh, agent, API, etc.)
     return p
 
 async def delete_peer_for_user(db: AsyncSession, *, user_id: str, peer_id: str) -> None:

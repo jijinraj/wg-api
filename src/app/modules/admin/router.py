@@ -32,10 +32,18 @@ from app.modules.admin.service import (
     approve_user_by_email,
     list_peers_for_user,
     force_delete_peer,
+    create_vpn_server,
+    update_vpn_server,
+    delete_vpn_server,
+    list_vpn_servers,
+    update_user_admin,
+    delete_user_admin,
 )
 
-from app.modules.admin.schemas import VpnServerCreate
+from app.modules.admin.schemas import AdminUserUpdate
+from app.modules.admin.schemas import VpnServerCreate,VpnServerUpdate
 from app.modules.admin.service import create_vpn_server
+from app.modules.admin.service import update_user_admin, delete_user_admin
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -62,6 +70,33 @@ async def approve(email: str, admin=Depends(require_admin), db: AsyncSession = D
     await approve_user_by_email(db, email)
     return {"ok": True}
 
+
+@router.patch("/users/{user_id}")
+async def patch_user(
+    user_id: str,
+    payload: AdminUserUpdate,
+    admin=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    u = await update_user_admin(db, user_id, payload)
+    return {
+        "id": u.id,
+        "email": u.email,
+        "is_beta_approved": u.is_beta_approved,
+        "is_email_verified": u.is_email_verified,
+        "role": u.role,
+        "created_at": u.created_at,
+    }
+
+@router.delete("/users/{user_id}")
+async def remove_user(
+    user_id: str,
+    admin=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    await delete_user_admin(db, user_id)
+    return {"ok": True}
+    
 @router.get("/users/{user_id}/peers")
 async def user_peers(user_id: str, admin=Depends(require_admin), db: AsyncSession = Depends(get_db)):
     rows = await list_peers_for_user(db, user_id)
@@ -89,6 +124,11 @@ async def delete_peer(peer_id: str, admin=Depends(require_admin), db: AsyncSessi
 
 
 # VPN Server Management Routes
+@router.get("/vpn/servers")
+async def get_vpn_servers(admin=Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    rows = await list_vpn_servers(db)
+    return {"items": [s.to_dict() for s in rows]}
+
 @router.post("/vpn/servers")
 async def add_vpn_server(
     payload: VpnServerCreate,
@@ -107,3 +147,23 @@ async def add_vpn_server(
         "is_active": s.is_active,
         "created_at": s.created_at,
     }
+
+@router.patch("/vpn/servers/{server_id}")
+async def patch_vpn_server(
+    server_id: str,
+    payload: VpnServerUpdate,
+    admin=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    s = await update_vpn_server(db, server_id, payload)
+    return s.to_dict()
+
+@router.delete("/vpn/servers/{server_id}")
+async def remove_vpn_server(
+    server_id: str,
+    admin=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    await delete_vpn_server(db, server_id)
+    return {"ok": True}
+

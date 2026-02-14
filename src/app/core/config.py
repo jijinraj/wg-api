@@ -18,21 +18,32 @@ via a `settings` object used across the backend.
   Later this should move into the database so the VPN module can manage locations.
 """
 import os
+import logging
 from pathlib import Path
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# The ENV files are not currently being picked up for some reason ! review this !!! 
-# 
-# Load env vars from envs/ (same folder as this file)
-# repo root = .../wg-api
-ROOT_DIR = Path(__file__).resolve().parents[3]  # core -> app -> src -> wg-api
-ENV_PATH = ROOT_DIR / "envs" / ".env"
+log = logging.getLogger("uvicorn")
 
-load_dotenv(dotenv_path=ENV_PATH, override=True)
-print("Loaded ENV from:", ENV_PATH)
-print("DATABASE_URL:", os.getenv("DATABASE_URL"))
-print("DEV_MODE:", os.getenv("DEV_MODE"))
+def _find_env_path() -> Path | None:
+    """
+    Searches upwards from this file to find: envs/.env
+    This avoids brittle parents[3] assumptions when the folder structure changes.
+    """
+    here = Path(__file__).resolve()
+    for parent in [here.parent] + list(here.parents):
+        candidate = parent / "envs" / ".env"
+        if candidate.exists():
+            return candidate
+    return None
+
+ENV_PATH = _find_env_path()
+if ENV_PATH:
+    load_dotenv(dotenv_path=ENV_PATH, override=True)
+    # Only log (don’t print) to keep production clean
+    log.info(f"Loaded ENV from: {ENV_PATH}")
+else:
+    log.warning("No envs/.env found. Using environment variables + defaults only.")
 
 def _env_bool(name: str, default: str = "false") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "y", "on"}
@@ -56,31 +67,10 @@ class Settings(BaseModel):
     )
 
     # Dev helper: allow memory users as fallback/seed
+    # IMPORTANT: set ALLOW_MEMORY_USERS=false in prod.
     ALLOW_MEMORY_USERS: bool = _env_bool("ALLOW_MEMORY_USERS", "true")
 
     # Dev helper: expose extra ops/debug endpoints (NEVER enable in prod)
-    DEV_MODE: bool = _env_bool("DEV_MODE")
+    DEV_MODE: bool = _env_bool("DEV_MODE", "false")
 
 settings = Settings()
-
-# Static for now; later move to DB (vpn module can manage)
-LOCATIONS = [
-    {
-        "id": "de-fra",
-        "label": "Germany (Frankfurt)",
-        "server_public_key": "PUT_DE_SERVER_PUBLIC_KEY",
-        "endpoint": "de.vpn.yourdomain.com:51820",
-        "dns": "1.1.1.1",
-        "allowed_ips": "0.0.0.0/0, ::/0",
-        "ping_url": "instagram.com",
-    },
-    {
-        "id": "uk-lon",
-        "label": "United Kingdom (London)",
-        "server_public_key": "PUT_UK_SERVER_PUBLIC_KEY",
-        "endpoint": "uk.vpn.yourdomain.com:51820",
-        "dns": "1.1.1.1",
-        "allowed_ips": "0.0.0.0/0, ::/0",
-        "ping_url": "facebook.com",
-    },
-]

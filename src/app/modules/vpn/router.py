@@ -27,7 +27,6 @@ Notes:
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import LOCATIONS
 from app.core.security import get_user
 from app.db.session import get_db
 
@@ -39,7 +38,7 @@ from app.modules.vpn.schemas import (
     PeerListOut,
 )
 from app.modules.vpn.service import (
-    # get_location,
+    list_active_servers,
     get_server_by_location_id,
     list_peers_for_user,
     create_peer_for_user,
@@ -49,19 +48,22 @@ from app.modules.vpn.service import (
 router = APIRouter(prefix="/vpn", tags=["vpn"])
 
 @router.get("/locations", response_model=LocationListOut)
-def locations():
-    return {"items": [{"id": l["id"], "label": l["label"], "ping_url": l["ping_url"]} for l in LOCATIONS]}
+async def locations(db: AsyncSession = Depends(get_db)):
+    rows = await list_active_servers(db)
+    return {
+        "items": [{"id": s.location_id, "label": s.label, "ping_url": s.ping_url or ""} for s in rows]
+    }
 
 @router.get("/server-info", response_model=ServerInfoOut)
-def server_info(location_id: str):
-    loc = get_server_by_location_id(location_id)
+async def server_info(location_id: str, db: AsyncSession = Depends(get_db)):
+    loc = await get_server_by_location_id(db, location_id)
     if not loc:
         raise HTTPException(status_code=404, detail="Unknown location")
     return {
-        "server_public_key": loc["server_public_key"],
-        "endpoint": loc["endpoint"],
-        "dns": loc["dns"],
-        "allowed_ips": loc["allowed_ips"],
+        "server_public_key": loc.server_public_key,
+        "endpoint": loc.endpoint,
+        "dns": loc.dns,
+        "allowed_ips": loc.allowed_ips,
     }
 
 # User VPN self-management under VPN domain

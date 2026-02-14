@@ -1,14 +1,11 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Boolean, DateTime, Text
+from sqlalchemy import String, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
-from app.db.models import Base  # wherever your Base is
 
-
-def _uuid() -> str:
-    return str(uuid.uuid4())
+from app.db.models import Base
 
 class VpnServer(Base):
     __tablename__ = "vpn_servers"
@@ -24,8 +21,22 @@ class VpnServer(Base):
 
     dns: Mapped[str] = mapped_column(String(255), nullable=False, default="1.1.1.1")
     allowed_ips: Mapped[str] = mapped_column(String(255), nullable=False, default="0.0.0.0/0, ::/0")
-    ping_url: Mapped[str] = mapped_column(String(255), nullable=True)
+    ping_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": str(self.id),
+            "location_id": self.location_id,
+            "label": self.label,
+            "server_public_key": self.server_public_key,
+            "endpoint": self.endpoint,
+            "dns": self.dns,
+            "allowed_ips": self.allowed_ips,
+            "ping_url": self.ping_url,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
