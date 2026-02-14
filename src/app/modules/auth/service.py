@@ -16,6 +16,10 @@ from app.db.repo import sessions as sessions_repo
 from app.db.repo import email_verifications as ev_repo
 from app.db.repo import password_resets as pr_repo
 
+
+from app.core.time import ensure_aware_utc
+
+
 log = logging.getLogger("uvicorn")
 
 
@@ -232,7 +236,7 @@ async def verify_email_otp(db: AsyncSession, email: str, otp: str) -> None:
     if not rec:
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
-    if rec.expires_at <= datetime.now(timezone.utc):
+    if ensure_aware_utc(rec.expires_at) <= datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="OTP expired")
 
     try:
@@ -283,7 +287,7 @@ async def reset_password(db: AsyncSession, email: str, token: str, new_password:
     if not rec:
         raise HTTPException(status_code=400, detail="Invalid reset token")
 
-    if rec.expires_at <= datetime.now(timezone.utc):
+    if ensure_aware_utc(rec.expires_at) <= datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Reset token expired")
 
     try:
