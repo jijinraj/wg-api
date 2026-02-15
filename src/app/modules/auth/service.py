@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from argon2.exceptions import VerifyMismatchError
 
 from app.core.config import settings
+from app.core.devlog import dev_log_secret
 from app.core.security import make_refresh_token, hash_token
 from app.db.memory import USERS as MEM_USERS, ph
 
@@ -15,6 +16,7 @@ from app.db.repo import users as users_repo
 from app.db.repo import sessions as sessions_repo
 from app.db.repo import email_verifications as ev_repo
 from app.db.repo import password_resets as pr_repo
+
 
 
 from app.core.time import ensure_aware_utc
@@ -187,6 +189,13 @@ async def refresh_rotate(db: AsyncSession, refresh_token: str):
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to rotate session")
 
+    # DEV-only logging (masked)
+    if settings.DEV_MODE:
+        if settings.DEV_LOG_FULL_TOKENS:
+            log.warning(f"[DEV REFRESH FULL] {new_raw}")
+        else:
+            dev_log_secret("REFRESH TOKEN ROTATED", new_raw, user_id=u.id, expires_at=new_expires.isoformat())
+            
     return u, new_raw
 
 

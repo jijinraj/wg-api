@@ -79,6 +79,7 @@ class Settings(BaseModel):
 
     # Dev helper: expose extra ops/debug endpoints (NEVER enable in prod)
     DEV_MODE: bool = _env_bool("DEV_MODE", "false")
+    DEV_LOG_FULL_TOKENS: bool = _env_bool("DEV_LOG_FULL_TOKENS", "false")
 
     # App Name And Versioning
     APP_NAME: str = os.getenv("APP_NAME", "spartarocket-wg-api")
